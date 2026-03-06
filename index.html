@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>SpineErectaAI — Clinical Posture Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<!-- ═══════════════════════════════════════════════════════
+  ⚙️  CONFIGURATION — EDIT THESE BEFORE GOING LIVE
+════════════════════════════════════════════════════════ -->
+<script>
+const CONFIG = {
+  // ── Free Testing Mode ─────────────────────────────
+  FREE_MODE: true,   // No payments — unlimited access for all users
+
+  // ── Calendly ──────────────────────────────────────
+  CALENDLY_URL: 'https://calendly.com/YOUR_HANDLE/spine-consult',
+
+  // ── Google Sheets Sync ────────────────────────────
+  SHEETS_WEBHOOK: 'https://script.google.com/macros/s/REPLACE_WITH_YOUR_SCRIPT_ID/exec',
+
+  // ── Business Details ──────────────────────────────
+  BUSINESS_NAME: 'SpineErectaAI',
+  BUSINESS_EMAIL: 'hello@spineerectaai.com',
+  SUPPORT_WA: '919876543210',  // Country code + number, no +
+
+  // ── Privacy Policy URL ────────────────────────────
+  PRIVACY_URL: 'PrivacyPolicy_India.html',
+};
+</script>
+
+<style>
+/* ════════════════════════════════════
+   DESIGN TOKENS
+════════════════════════════════════ */
+:root {
+  --bg:     #04080f;
+  --bg2:    #080f1a;
+  --surf:   #0c1524;
+  --card:   #101e30;
+  --elev:   #142035;
+  --border: rgba(255,255,255,.07);
+  --cyan:   #00d4ff;
+  --grn:    #00e87a;
+  --red:    #ff3d55;
+  --amb:    #ff9f0a;
+  --gold:   #f5c842;
+  --purple: #a78bfa;
+  --t1:     #f0f4ff;
+  --t2:     #7a90b8;
+  --t3:     #354560;
+  --t4:     #1e2e45;
+  --mono:   'JetBrains Mono', monospace;
+  --sans:   'Inter', sans-serif;
+  --r:      14px;
+  --r2:     20px;
+  --r3:     28px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg);
+  color: var(--t1);
+  font-family: var(--sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Grain overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 9500; pointer-events: none;
+  opacity: .22;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");
+}
+
+/* ════════════════════════════════════
+   GATE — MULTI-STEP WIZARD
+════════════════════════════════════ */
+#gate {
+  position: fixed; inset: 0; z-index: 8000;
+  background: rgba(4,8,15,.99);
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+#gate.done { display: none; }
+
+.gz-top {
+  position: sticky; top: 0; z-index: 10;
+  background: rgba(4,8,15,.97);
+  backdrop-filter: blur(20px);
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.gz-logo { display: flex; align-items: center; gap: 8px; }
+.gz-logo-txt { font-size: .82rem; font-weight: 800; color: var(--cyan); letter-spacing: -.02em; }
+.gz-logo-txt span { color: var(--t1); }
+.gz-step-info { font-family: var(--mono); font-size: .6rem; color: var(--t3); letter-spacing: .08em; }
+
+.gz-prog-rail {
+  height: 3px; background: var(--t4);
+}
+.gz-prog-fill {
+  height: 100%; background: linear-gradient(90deg, var(--cyan), var(--grn));
+  transition: width .55s cubic-bezier(.4,0,.2,1);
+}
+
+.gz-body { flex: 1; display: flex; justify-content: center; padding: 28px 20px 48px; }
+.gz-panel { width: 100%; max-width: 480px; }
+
+.step-pg { display: none; animation: slideUp .4s ease both; }
+.step-pg.active { display: block; }
+@keyframes slideUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+
+.step-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: .58rem; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--cyan); border: 1px solid rgba(0,212,255,.22); border-radius: 30px;
+  padding: 3px 11px; background: rgba(0,212,255,.04); margin-bottom: 14px;
+}
+.step-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--cyan); animation: pulse 1.2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.3;transform:scale(.5)} }
+
+.step-h1 { font-size: 1.45rem; font-weight: 800; letter-spacing: -.04em; line-height: 1.1; margin-bottom: 6px; }
+.step-sub { font-size: .78rem; color: var(--t2); line-height: 1.7; margin-bottom: 22px; }
+
+/* Form fields */
+.frow { margin-bottom: 15px; }
+.flbl {
+  display: flex; align-items: center; gap: 4px;
+  font-family: var(--mono); font-size: .58rem; letter-spacing: .1em;
+  color: var(--t2); text-transform: uppercase; margin-bottom: 7px;
+}
+.flbl .req { color: var(--red); font-size: .65rem; }
+.finp {
+  width: 100%; background: var(--elev);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: var(--r); padding: 12px 14px;
+  color: var(--t1); font-family: var(--sans); font-size: .84rem;
+  outline: none; transition: border-color .2s, box-shadow .2s;
+  -webkit-appearance: none;
+}
+.finp:focus { border-color: rgba(0,212,255,.45); box-shadow: 0 0 0 3px rgba(0,212,255,.08); }
+.finp.err { border-color: rgba(255,61,85,.55); }
+.finp::placeholder { color: var(--t3); }
+.finp option { background: #0c1524; }
+.ferr {
+  font-family: var(--mono); font-size: .6rem; color: var(--red);
+  margin-top: 4px; display: none;
+}
+.ferr.show { display: block; }
+
+/* Yes/No condition card */
+.yn-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r2); padding: 14px 15px; margin-bottom: 10px;
+  transition: border-color .2s;
+}
+.yn-card.answered-yes { border-color: rgba(255,61,85,.4); background: rgba(255,61,85,.04); }
+.yn-card.answered-no  { border-color: rgba(0,232,122,.3); background: rgba(0,232,122,.03); }
+.yn-q { font-size: .84rem; font-weight: 600; color: var(--t1); margin-bottom: 4px; line-height: 1.3; }
+.yn-hint { font-size: .7rem; color: var(--t2); margin-bottom: 12px; line-height: 1.55; }
+.yn-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.yn-btn {
+  padding: 10px; border-radius: var(--r); font-family: var(--sans);
+  font-size: .76rem; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--border); background: var(--bg2);
+  color: var(--t3); transition: all .15s; text-align: center;
+}
+.yn-btn.sel-yes { background: rgba(255,61,85,.14); border-color: rgba(255,61,85,.6); color: var(--red); }
+.yn-btn.sel-no  { background: rgba(0,232,122,.1);  border-color: rgba(0,232,122,.45); color: var(--grn); }
+.yn-btn:not(.sel-yes):not(.sel-no):hover { background: var(--surf); color: var(--t2); border-color: rgba(255,255,255,.14); }
+
+.surgery-input { display: none; margin-top: 10px; }
+.surgery-input.show { display: block; }
+
+/* Step navigation */
+.step-nav { display: flex; gap: 10px; margin-top: 26px; }
+.btn-back {
+  flex: 0 0 auto; font-family: var(--sans); font-size: .78rem; font-weight: 600;
+  padding: 12px 18px; background: transparent; color: var(--t2);
+  border: 1px solid var(--border); border-radius: var(--r2); cursor: pointer;
+  transition: all .2s;
+}
+.btn-back:hover { color: var(--t1); border-color: rgba(255,255,255,.18); }
+.btn-next {
+  flex: 1; font-family: var(--sans); font-size: .86rem; font-weight: 700;
+  padding: 13px; background: linear-gradient(135deg, var(--cyan), #0098ba);
+  color: #020a12; border: none; border-radius: var(--r2); cursor: pointer;
+  transition: all .25s; letter-spacing: -.01em; position: relative; overflow: hidden;
+}
+.btn-next::after { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,255,255,.18),transparent); }
+.btn-next:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,212,255,.28); }
+.btn-next:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+
+.privacy-note {
+  display: flex; gap: 9px; margin-top: 18px;
+  background: rgba(0,232,122,.04); border: 1px solid rgba(0,232,122,.13);
+  border-radius: var(--r); padding: 11px 13px;
+}
+.privacy-note p { font-size: .68rem; color: var(--t2); line-height: 1.65; }
+.privacy-note strong { color: var(--grn); }
+
+/* Summary chips */
+.chip-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 14px; }
+.chip {
+  font-family: var(--mono); font-size: .58rem; padding: 3px 10px;
+  border-radius: 20px; display: flex; align-items: center; gap: 4px;
+}
+.chip.y { background: rgba(255,61,85,.1); border: 1px solid rgba(255,61,85,.3); color: var(--red); }
+.chip.n { background: rgba(0,232,122,.07); border: 1px solid rgba(0,232,122,.22); color: var(--grn); }
+
+/* ════════════════════════════════════
+   NAV
+════════════════════════════════════ */
+nav {
+  position: sticky; top: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 18px; height: 58px;
+  background: rgba(4,8,15,.92); backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo { display: flex; align-items: center; gap: 10px; }
+.nav-logo svg { flex-shrink: 0; }
+.nav-logo-text { display: flex; flex-direction: column; line-height: 1; }
+.nav-logo-main { font-size: .84rem; font-weight: 800; letter-spacing: -.03em; color: var(--cyan); }
+.nav-logo-main b { color: var(--t1); font-weight: 900; }
+.nav-logo-sub { font-family: var(--mono); font-size: .44rem; letter-spacing: .14em; color: var(--t3); text-transform: uppercase; margin-top: 2px; }
+.nav-pill {
+  font-family: var(--mono); font-size: .46rem; padding: 2px 8px;
+  background: rgba(0,232,122,.08); border: 1px solid rgba(0,232,122,.22);
+  border-radius: 20px; color: var(--grn); letter-spacing: .08em; align-self: center;
+}
+.nav-right { display: flex; align-items: center; gap: 7px; }
+.nav-btn {
+  font-size: .7rem; font-weight: 600; padding: 6px 12px; border-radius: var(--r);
+  border: 1px solid rgba(0,212,255,.25); background: transparent; color: var(--cyan);
+  cursor: pointer; transition: all .2s;
+}
+.nav-btn:hover { background: rgba(0,212,255,.07); }
+.nav-cta {
+  font-size: .7rem; font-weight: 700; padding: 6px 12px; border-radius: var(--r);
+  background: rgba(245,200,66,.1); border: 1px solid rgba(245,200,66,.28); color: var(--gold);
+  cursor: pointer; transition: all .2s;
+}
+.nav-cta:hover { background: rgba(245,200,66,.18); }
+
+/* ════════════════════════════════════
+   HERO
+════════════════════════════════════ */
+.hero {
+  min-height: 82vh; display: grid; place-items: center;
+  padding: 56px 20px 44px; position: relative; overflow: hidden;
+}
+.hero-grid {
+  position: absolute; inset: 0; opacity: .55;
+  background: linear-gradient(rgba(0,212,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.018) 1px,transparent 1px);
+  background-size: 44px 44px; animation: gridPulse 12s ease-in-out infinite alternate;
+}
+@keyframes gridPulse { from{opacity:.35} to{opacity:.7} }
+.hero-glow {
+  position: absolute; top: 35%; left: 50%; transform: translate(-50%,-50%);
+  width: 600px; height: 600px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,212,255,.055) 0%, rgba(0,232,122,.025) 40%, transparent 70%);
+  animation: glowPulse 8s ease-in-out infinite alternate;
+}
+@keyframes glowPulse { from{transform:translate(-50%,-50%) scale(.85);opacity:.5} to{transform:translate(-50%,-50%) scale(1.12);opacity:1} }
+.hc { position: relative; z-index: 1; text-align: center; max-width: 580px; }
+.h-kicker {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--mono); font-size: .58rem; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--grn); border: 1px solid rgba(0,232,122,.22); border-radius: 30px;
+  padding: 4px 14px; margin-bottom: 20px; background: rgba(0,232,122,.04);
+  animation: fadeUp .5s ease both;
+}
+.h-kicker-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--grn); animation: pulse 1s infinite; }
+.h1 {
+  font-size: clamp(2.2rem,8vw,4.2rem); font-weight: 900; line-height: .92;
+  letter-spacing: -.05em; margin-bottom: 16px; animation: fadeUp .5s .1s ease both;
+}
+.h1 em { display: block; color: var(--cyan); font-style: italic; filter: drop-shadow(0 0 24px rgba(0,212,255,.5)); }
+.h-sub {
+  font-size: .8rem; color: var(--t2); line-height: 1.9;
+  margin: 0 auto 32px; animation: fadeUp .5s .2s ease both;
+}
+.h-ctas { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; animation: fadeUp .5s .3s ease both; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+.btn-primary {
+  font-size: .82rem; font-weight: 700; padding: 13px 26px;
+  background: var(--cyan); color: #020a12; border: none;
+  border-radius: var(--r2); cursor: pointer; transition: all .25s; position: relative; overflow: hidden;
+}
+.btn-primary::after { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,255,255,.18),transparent); }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(0,212,255,.35); }
+.btn-secondary {
+  font-size: .82rem; font-weight: 700; padding: 13px 26px;
+  background: rgba(245,200,66,.08); color: var(--gold);
+  border: 1px solid rgba(245,200,66,.3); border-radius: var(--r2);
+  cursor: pointer; transition: all .25s;
+}
+.btn-secondary:hover { background: rgba(245,200,66,.16); transform: translateY(-2px); }
+.trial-notice {
+  margin-top: 14px; font-family: var(--mono); font-size: .64rem; color: var(--t3);
+}
+.trial-notice strong { color: var(--grn); }
+
+/* Stats bar */
+.sbar {
+  background: var(--surf);
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  padding: 18px;
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 8px;
+}
+.si { text-align: center; }
+.sv { display: block; font-size: 1.4rem; font-weight: 800; color: var(--cyan); letter-spacing: -.04em; filter: drop-shadow(0 0 12px rgba(0,212,255,.4)); }
+.sl { display: block; font-family: var(--mono); font-size: .48rem; color: var(--t3); text-transform: uppercase; letter-spacing: .1em; margin-top: 3px; }
+
+/* ════════════════════════════════════
+   ANALYSIS SECTION
+════════════════════════════════════ */
+.asec {
+  padding: 28px 18px;
+  background: var(--surf);
+  border-bottom: 1px solid var(--border);
+}
+.sec-label {
+  font-family: var(--mono); font-size: .56rem; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--grn); margin-bottom: 8px;
+}
+.sec-title { font-size: clamp(1.3rem,4vw,2rem); font-weight: 800; letter-spacing: -.04em; line-height: 1; margin-bottom: 6px; }
+.sec-desc { font-size: .76rem; color: var(--t2); line-height: 1.7; margin-bottom: 16px; }
+
+/* Flags */
+.flags-strip {
+  display: none; margin-bottom: 14px;
+  background: rgba(255,61,85,.05); border: 1px solid rgba(255,61,85,.18);
+  border-radius: var(--r); padding: 10px 13px;
+}
+.flags-strip.show { display: block; }
+.flags-label { font-family: var(--mono); font-size: .55rem; color: var(--t3); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 7px; }
+.flags-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.flag-chip {
+  font-family: var(--mono); font-size: .57rem; padding: 2px 9px;
+  border-radius: 20px; background: rgba(255,61,85,.1); border: 1px solid rgba(255,61,85,.25); color: var(--red);
+}
+
+/* Camera */
+.camwrap {
+  position: relative; background: #000610;
+  border: 1px solid rgba(0,212,255,.15); border-radius: var(--r3);
+  overflow: hidden; aspect-ratio: 4/3; margin-bottom: 11px;
+}
+video { width:100%; height:100%; object-fit:cover; display:block; transform:scaleX(-1); }
+canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.cam-corners .cc { position:absolute; width:22px; height:22px; border-color:var(--cyan); border-style:solid; border-width:0; }
+.cc.tl{top:10px;left:10px;border-top-width:2px;border-left-width:2px}
+.cc.tr{top:10px;right:10px;border-top-width:2px;border-right-width:2px}
+.cc.bl{bottom:10px;left:10px;border-bottom-width:2px;border-left-width:2px}
+.cc.br{bottom:10px;right:10px;border-bottom-width:2px;border-right-width:2px}
+.cam-status {
+  position:absolute; top:10px; left:50%; transform:translateX(-50%);
+  font-family:var(--mono); font-size:.56rem; letter-spacing:.1em;
+  background:rgba(4,8,15,.9); border:1px solid rgba(0,212,255,.2);
+  border-radius:20px; padding:4px 12px; color:var(--cyan); white-space:nowrap; z-index:10;
+}
+.live-dot {
+  display:inline-block; width:5px; height:5px; border-radius:50%;
+  margin-right:5px; vertical-align:middle; background:var(--red); animation:pulse 1s infinite;
+}
+.live-dot.on{background:var(--grn)}
+.cam-overlay {
+  position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  background:rgba(4,8,15,.93); backdrop-filter:blur(4px);
+  gap:13px; z-index:20; transition:opacity .4s;
+}
+.cam-overlay.gone{opacity:0;pointer-events:none}
+.cam-ov-icon {
+  width:62px; height:62px; border:2px solid rgba(0,212,255,.5);
+  border-radius:50%; display:grid; place-items:center; font-size:1.6rem;
+  animation: glowPulse 3s infinite alternate;
+}
+.cam-ov-txt{font-size:.74rem;color:var(--t2);text-align:center;line-height:1.7;max-width:210px}
+
+/* Alert banners — transform-based only */
+.cal {
+  position:absolute; bottom:0; left:0; right:0; z-index:40;
+  padding:11px 14px; font-family:var(--mono); font-size:.66rem; letter-spacing:.02em; color:#fff;
+  display:flex; align-items:center; gap:9px;
+  transform:translateY(110%); transition:transform .35s cubic-bezier(.4,0,.2,1);
+}
+.cal.show{transform:translateY(0)}
+#al-s{background:linear-gradient(90deg,rgba(255,61,85,.97),rgba(200,30,55,.97))}
+#al-b{background:linear-gradient(90deg,rgba(120,0,25,.99),rgba(160,10,40,.99))}
+#al-br{background:linear-gradient(90deg,rgba(180,90,0,.97),rgba(210,110,0,.97))}
+#al-d{background:linear-gradient(90deg,rgba(0,140,120,.97),rgba(0,110,95,.97))}
+.al-x{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:4px;padding:2px 8px;font-size:.6rem;cursor:pointer;font-family:var(--mono);margin-left:auto}
+
+/* Camera controls */
+.cam-ctrl{display:flex;gap:8px;margin-bottom:16px}
+.cbtn{flex:1;font-size:.72rem;font-weight:700;padding:10px;border-radius:var(--r);cursor:pointer;transition:all .2s;border:1px solid}
+.cbtn-start{background:var(--cyan);border-color:var(--cyan);color:#020a12}
+.cbtn-start:hover:not(:disabled){box-shadow:0 6px 22px rgba(0,212,255,.35)}
+.cbtn-start:disabled{opacity:.38;cursor:not-allowed}
+.cbtn-pause{background:transparent;border-color:rgba(0,212,255,.25);color:var(--cyan)}
+.cbtn-pause:disabled{opacity:.32;cursor:not-allowed}
+
+/* ════════════════════════════════════
+   METRICS GRID
+════════════════════════════════════ */
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mc{background:var(--card);border:1px solid var(--border);border-radius:var(--r2);padding:14px}
+.mc.full{grid-column:1/-1}
+.mhd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.mn{font-family:var(--mono);font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}
+.mbg{font-family:var(--mono);font-size:.5rem;padding:2px 7px;border-radius:20px}
+.mbg.g{background:rgba(0,232,122,.1);color:var(--grn);border:1px solid rgba(0,232,122,.22)}
+.mbg.w{background:rgba(255,159,10,.1);color:var(--amb);border:1px solid rgba(255,159,10,.22)}
+.mbg.a{background:rgba(255,61,85,.1);color:var(--red);border:1px solid rgba(255,61,85,.22)}
+.mv{font-size:1.7rem;font-weight:800;letter-spacing:-.05em;line-height:1;margin-bottom:3px}
+.mv.cy{color:var(--cyan)}.mv.g{color:var(--grn)}.mv.r{color:var(--red)}
+.ms{font-family:var(--mono);font-size:.56rem;color:var(--t3);line-height:1.45}
+.mbar{height:4px;background:var(--bg);border-radius:4px;overflow:hidden;margin-top:8px}
+.mfill{height:100%;border-radius:4px;transition:width .45s ease,background .4s ease}
+.mfill.cy{background:linear-gradient(90deg,var(--cyan),#0098ba)}
+.mfill.g{background:linear-gradient(90deg,var(--grn),#00bb5e)}
+.mfill.r{background:linear-gradient(90deg,var(--red),#cc2244)}
+.mfill.a{background:linear-gradient(90deg,var(--amb),#cc7a00)}
+.bwave{height:36px;overflow:hidden;margin-top:8px}
+.bwave canvas{width:100%;height:100%}
+.dual-bars{margin-top:8px}
+.dbl-lbl{font-family:var(--mono);font-size:.5rem;color:var(--t3);margin-bottom:3px}
+
+/* HITL */
+.hitl-card{
+  display:none;background:rgba(167,139,250,.06);border:1px solid rgba(167,139,250,.28);
+  border-radius:var(--r2);padding:14px;grid-column:1/-1;
+}
+.hitl-card.show{display:block}
+.hitl-title{font-size:.82rem;font-weight:700;color:var(--purple);margin-bottom:4px}
+.hitl-desc{font-size:.7rem;color:var(--t2);line-height:1.65;margin-bottom:12px}
+.hitl-btns{display:flex;gap:9px}
+.hitl-yes{flex:1;padding:10px;background:var(--grn);color:#020a12;border:none;border-radius:var(--r);font-size:.74rem;font-weight:700;cursor:pointer}
+.hitl-no{flex:1;padding:10px;background:var(--elev);color:var(--t1);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);font-size:.74rem;font-weight:700;cursor:pointer}
+
+/* ════════════════════════════════════
+   FEATURE SECTION
+════════════════════════════════════ */
+.fsec{padding:44px 18px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px}
+.fc{background:var(--surf);border:1px solid var(--border);border-radius:var(--r2);padding:18px 15px;position:relative;overflow:hidden;transition:transform .3s,border-color .3s}
+.fc:hover{transform:translateY(-3px);border-color:rgba(0,212,255,.2)}
+.fc-num{font-family:var(--mono);font-size:2.4rem;font-weight:800;color:rgba(0,212,255,.05);line-height:1;position:absolute;top:4px;right:10px}
+.fc-ico{font-size:1.1rem;margin-bottom:9px;display:block}
+.fc-title{font-size:.76rem;font-weight:700;margin-bottom:5px;color:var(--t1)}
+.fc-txt{font-size:.67rem;color:var(--t2);line-height:1.65}
+
+/* ════════════════════════════════════
+   EXPERT / CALENDLY CTA
+════════════════════════════════════ */
+.expert-sec{
+  background:linear-gradient(135deg,rgba(245,200,66,.05),rgba(245,200,66,.015) 50%,rgba(0,232,122,.03));
+  border-top:1px solid rgba(245,200,66,.14);border-bottom:1px solid rgba(245,200,66,.14);
+  padding:36px 20px;text-align:center;position:relative;overflow:hidden;
+}
+.expert-sec::before{content:'';position:absolute;top:-60px;right:-60px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(245,200,66,.08),transparent 70%)}
+.expert-eyebrow{font-family:var(--mono);font-size:.56rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:10px}
+.expert-title{font-size:1.55rem;font-weight:900;letter-spacing:-.04em;line-height:1.1;margin-bottom:10px}
+.expert-desc{font-size:.78rem;color:var(--t2);line-height:1.8;margin-bottom:20px;max-width:420px;margin-left:auto;margin-right:auto}
+.btn-gold{font-size:.86rem;font-weight:800;padding:14px 30px;background:linear-gradient(135deg,var(--gold),#d4a820);color:#0a0600;border:none;border-radius:var(--r2);cursor:pointer;transition:all .25s}
+.btn-gold:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(245,200,66,.28)}
+.expert-trust{margin-top:14px;font-family:var(--mono);font-size:.6rem;color:var(--t3)}
+
+/* Footer */
+footer{background:var(--surf);border-top:1px solid var(--border);padding:24px 18px;text-align:center}
+.flogo{font-size:.88rem;font-weight:800;color:var(--cyan);letter-spacing:-.02em;margin-bottom:8px}
+.ftxt{font-family:var(--mono);font-size:.6rem;color:var(--t3);line-height:2}
+.ftxt a{color:var(--cyan);text-decoration:none}
+
+/* Expert modal */
+.modal{position:fixed;inset:0;background:rgba(4,8,15,.93);backdrop-filter:blur(16px);display:flex;align-items:center;justify-content:center;z-index:5000;opacity:0;pointer-events:none;transition:opacity .3s;padding:18px}
+.modal.open{opacity:1;pointer-events:all}
+.mbox{background:var(--surf);border:1px solid rgba(0,212,255,.15);border-radius:var(--r3);padding:26px;width:100%;max-width:420px;transform:scale(.95);transition:transform .3s;position:relative}
+.modal.open .mbox{transform:scale(1)}
+.mtit{font-size:1.1rem;font-weight:800;letter-spacing:-.03em;margin-bottom:5px}
+.msub{font-size:.7rem;color:var(--t2);margin-bottom:18px;line-height:1.65}
+.mclose{position:absolute;top:11px;right:11px;background:var(--elev);border:1px solid var(--border);border-radius:var(--r);width:28px;height:28px;display:grid;place-items:center;cursor:pointer;color:var(--t3);font-size:.85rem}
+
+/* Toast */
+.toast-container{position:fixed;bottom:16px;right:16px;z-index:9600;display:flex;flex-direction:column;gap:7px;align-items:flex-end}
+.toast{background:var(--card);border:1px solid rgba(0,212,255,.14);border-radius:var(--r2);padding:10px 14px;font-family:var(--mono);font-size:.7rem;color:var(--t1);display:flex;align-items:center;gap:8px;max-width:280px;box-shadow:0 6px 24px rgba(0,0,0,.5);animation:toastIn .3s ease,toastOut .3s ease 4.7s forwards}
+.toast.err{border-color:rgba(255,61,85,.38)}.toast.ok{border-color:rgba(0,232,122,.3)}.toast.warn{border-color:rgba(255,159,10,.3)}.toast.info{border-color:rgba(167,139,250,.3)}
+@keyframes toastIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+@keyframes toastOut{from{opacity:1}to{opacity:0}}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════
+   GATE — 5-STEP WIZARD
+════════════════════════════════════════════════════════ -->
+<div id="gate">
+  <div class="gz-top">
+    <div class="gz-logo">
+      <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
+        <rect x="11" y="2" width="6" height="4" rx="1.5" fill="#00d4ff" opacity=".9"/>
+        <rect x="11" y="8" width="6" height="4" rx="1.5" fill="#00d4ff" opacity=".75"/>
+        <rect x="11" y="14" width="6" height="4" rx="1.5" fill="#00d4ff" opacity=".6"/>
+        <rect x="11" y="20" width="6" height="4" rx="1.5" fill="#00d4ff" opacity=".45"/>
+        <line x1="14" y1="6" x2="14" y2="8" stroke="#00d4ff" stroke-width="1.5" opacity=".5"/>
+        <line x1="14" y1="12" x2="14" y2="14" stroke="#00d4ff" stroke-width="1.5" opacity=".5"/>
+        <line x1="14" y1="18" x2="14" y2="20" stroke="#00d4ff" stroke-width="1.5" opacity=".5"/>
+        <line x1="5" y1="4" x2="11" y2="4" stroke="#00e87a" stroke-width="1.5" opacity=".65"/>
+        <line x1="17" y1="4" x2="23" y2="4" stroke="#00e87a" stroke-width="1.5" opacity=".65"/>
+      </svg>
+      <span class="gz-logo-txt">SpineErecta<span>AI</span></span>
+    </div>
+    <div class="gz-step-info" id="gz-step-lbl">Step 1 of 4</div>
+  </div>
+  <div class="gz-prog-rail"><div class="gz-prog-fill" id="gz-prog" style="width:25%"></div></div>
+
+  <div class="gz-body">
+    <div class="gz-panel">
+
+      <!-- STEP 1 — Location & Practice -->
+      <div class="step-pg active" id="sp1">
+        <div class="step-tag"><span class="step-dot"></span>Step 1 of 4 · Location & Practice</div>
+        <div class="step-h1">Where are you practising?</div>
+        <div class="step-sub">Helps us localise clinical thresholds and match you to the right expert.</div>
+        <div class="frow">
+          <div class="flbl">Country <span class="req">*</span></div>
+          <select class="finp" id="f-country">
+            <option value="">Select country</option>
+            <option>India</option><option>United States</option><option>United Kingdom</option>
+            <option>Australia</option><option>Canada</option><option>UAE</option>
+            <option>Singapore</option><option>Germany</option><option>Other</option>
+          </select>
+          <div class="ferr" id="e-country">Please select your country</div>
+        </div>
+        <div class="frow">
+          <div class="flbl">Age Group <span class="req">*</span></div>
+          <select class="finp" id="f-age">
+            <option value="">Select age group</option>
+            <option>Under 18</option><option>18–25</option><option>26–35</option>
+            <option>36–45</option><option>46–55</option><option>56–65</option><option>65+</option>
+          </select>
+          <div class="ferr" id="e-age">Please select your age group</div>
+        </div>
+        <div class="frow">
+          <div class="flbl">Primary Practice <span class="req">*</span></div>
+          <select class="finp" id="f-prac">
+            <option value="">Select practice</option>
+            <option>Yoga / Asana</option><option>Pranayama / Breathwork</option>
+            <option>Office / Desk Posture</option><option>Gym / Strength Training</option>
+            <option>Meditation</option><option>Physical Therapy / Rehab</option>
+            <option>Sports / Athletics</option>
+          </select>
+          <div class="ferr" id="e-prac">Please select a practice</div>
+        </div>
+        <div class="step-nav">
+          <button class="btn-next" onclick="goNext(1)">Continue →</button>
+        </div>
+        <div class="privacy-note">
+          <span style="font-size:1.1rem;flex-shrink:0">🔒</span>
+          <p><strong>Privacy guaranteed</strong> — All health data is stored on your device only. Never uploaded or sold. Governed by India's DPDPA 2023.</p>
+        </div>
+      </div>
+
+      <!-- STEP 2 — Cardiovascular -->
+      <div class="step-pg" id="sp2">
+        <div class="step-tag"><span class="step-dot"></span>Step 2 of 4 · Heart & Metabolism</div>
+        <div class="step-h1">Cardiovascular Health</div>
+        <div class="step-sub">Your answers directly control inversion timers and BP alerts. All required.</div>
+        <div id="cs2"></div>
+        <div class="step-nav">
+          <button class="btn-back" onclick="goBack(2)">← Back</button>
+          <button class="btn-next" onclick="goNext(2)">Continue →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3 — Spine & Surgery -->
+      <div class="step-pg" id="sp3">
+        <div class="step-tag"><span class="step-dot"></span>Step 3 of 4 · Spine & Joints</div>
+        <div class="step-h1">Spinal & Joint Health</div>
+        <div class="step-sub">Enables hold-time caps and personalised posture correction alerts.</div>
+        <div id="cs3"></div>
+        <div class="step-nav">
+          <button class="btn-back" onclick="goBack(3)">← Back</button>
+          <button class="btn-next" onclick="goNext(3)">Continue →</button>
+        </div>
+      </div>
+
+      <!-- STEP 4 — Breathing & Confirm -->
+      <div class="step-pg" id="sp4">
+        <div class="step-tag"><span class="step-dot"></span>Step 4 of 4 · Breathing & Confirm</div>
+        <div class="step-h1">Breathing Health & Review</div>
+        <div class="step-sub">One last section. Then review your safety profile and begin.</div>
+        <div id="cs4"></div>
+        <div style="margin:16px 0 8px;font-family:var(--mono);font-size:.56rem;color:var(--t3);letter-spacing:.1em;text-transform:uppercase">Your Safety Flags</div>
+        <div class="chip-row" id="summary-chips"></div>
+        <div class="step-nav">
+          <button class="btn-back" onclick="goBack(4)">← Back</button>
+          <button class="btn-next" onclick="activateApp()">🚀 Activate Analysis</button>
+        </div>
+        <div class="privacy-note" style="margin-top:16px">
+          <span style="font-size:1.1rem;flex-shrink:0">🛡️</span>
+          <p>By continuing you agree to our <a href="PrivacyPolicy_India.html" target="_blank" style="color:var(--cyan)">Privacy Policy</a> (India DPDPA 2023). Health data stays on your device only.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+   MAIN APPLICATION
+════════════════════════════════════════════════════════ -->
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+      <rect x="11" y="2" width="6" height="4" rx="1.5" fill="#00d4ff" opacity=".9"/>
+      <rect x="11" y="8" width="6" height="4" rx="1.5" fill="#00d4ff" opacity=".75"/>
+      <rect x="11" y="14" width="6" height="4" rx="1.5" fill="#00d4ff" opacity=".6"/>
+      <rect x="11" y="20" width="6" height="4" rx="1.5" fill="#00d4ff" opacity=".45"/>
+      <line x1="14" y1="6" x2="14" y2="8" stroke="#00d4ff" stroke-width="1.5" opacity=".5"/>
+      <line x1="14" y1="12" x2="14" y2="14" stroke="#00d4ff" stroke-width="1.5" opacity=".5"/>
+      <line x1="14" y1="18" x2="14" y2="20" stroke="#00d4ff" stroke-width="1.5" opacity=".5"/>
+      <line x1="5" y1="4" x2="11" y2="4" stroke="#00e87a" stroke-width="1.5" opacity=".65"/>
+      <line x1="17" y1="4" x2="23" y2="4" stroke="#00e87a" stroke-width="1.5" opacity=".65"/>
+      <line x1="5" y1="10" x2="11" y2="10" stroke="#00e87a" stroke-width="1.2" opacity=".45"/>
+      <line x1="17" y1="10" x2="23" y2="10" stroke="#00e87a" stroke-width="1.2" opacity=".45"/>
+    </svg>
+    <div class="nav-logo-text">
+      <span class="nav-logo-main">SpineErecta<b>AI</b></span>
+      <span class="nav-logo-sub">Clinical Posture Intelligence</span>
+    </div>
+    <span class="nav-pill">v7 · Free</span>
+  </div>
+  <div class="nav-right">
+    <button class="nav-btn" onclick="scrollTo('asec')">Analysis</button>
+    <button class="nav-cta" onclick="openCalendly()">📅 Book Expert</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+  <div class="hc">
+    <div class="h-kicker"><span class="h-kicker-dot"></span>BlazePose · BP Safety · Breath AI · On-Device · 100% Free</div>
+    <h1 class="h1">Your Posture.<br><em>Corrected. Free.</em></h1>
+    <p class="h-sub">Clinical spine calibration · Personalised BP alerts · AI breath coaching<br>Inversion cap at 10s · Zero subscriptions · Runs on your phone</p>
+    <div class="h-ctas">
+      <button class="btn-primary" onclick="scrollToId('asec')">▶ Start Live Analysis</button>
+      <button class="btn-secondary" onclick="openCalendly()">🎯 Book Expert Session</button>
+    </div>
+    <div class="trial-notice">✨ <strong>100% Free</strong> · No sign-up · No credit card · Unlimited sessions</div>
+  </div>
+</section>
+
+<div class="sbar">
+  <div class="si"><span class="sv">99%</span><span class="sl">Accuracy</span></div>
+  <div class="si"><span class="sv">30%</span><span class="sl">Slouch Alert</span></div>
+  <div class="si"><span class="sv">10s</span><span class="sl">BP Cap</span></div>
+  <div class="si"><span class="sv">~16ms</span><span class="sl">On-Device</span></div>
+</div>
+
+<!-- ANALYSIS -->
+<section class="asec" id="asec">
+  <p class="sec-label">Live Analysis Engine</p>
+  <h2 class="sec-title">Clinical Posture Analysis</h2>
+  <p class="sec-desc">On-device WebGL — no video uploaded. BlazePose tracks 33 body landmarks at 30fps. Calibrates to YOUR spine on startup.</p>
+
+  <div class="flags-strip" id="flags-strip">
+    <div class="flags-label">Active Health Flags</div>
+    <div class="flags-chips" id="flags-chips"></div>
+  </div>
+
+  <div class="camwrap">
+    <div class="cam-overlay" id="cam-overlay">
+      <div class="cam-ov-icon">📷</div>
+      <div class="cam-ov-txt">Click <strong style="color:var(--cyan)">Start Analysis</strong><br>Your spine is tracked live on-device</div>
+    </div>
+    <video id="vid" playsinline muted autoplay></video>
+    <canvas id="canv"></canvas>
+    <div class="cam-corners"><div class="cc tl"></div><div class="cc tr"></div><div class="cc bl"></div><div class="cc br"></div></div>
+    <div class="cam-status"><span class="live-dot" id="live-dot"></span><span id="cam-txt">STANDBY</span></div>
+    <div class="cal" id="al-s"><span>⚠️</span><span id="al-s-msg" style="flex:1"></span><button class="al-x" onclick="hideAl('al-s')">OK</button></div>
+    <div class="cal" id="al-b"><span>🛑</span><span id="al-b-msg" style="flex:1"></span><button class="al-x" onclick="hideAl('al-b')">OK</button></div>
+    <div class="cal" id="al-br"><span>🫁</span><span id="al-br-msg" style="flex:1"></span><button class="al-x" onclick="hideAl('al-br')">OK</button></div>
+    <div class="cal" id="al-d"><span>🩺</span><span id="al-d-msg" style="flex:1"></span><button class="al-x" onclick="hideAl('al-d')">OK</button></div>
+  </div>
+
+  <div class="cam-ctrl">
+    <button class="cbtn cbtn-start" id="btn-start" onclick="startCam()">▶ Start Analysis</button>
+    <button class="cbtn cbtn-pause" id="btn-pause" onclick="togglePause()" disabled>⏸ Pause</button>
+  </div>
+
+  <div class="mgrid">
+    <div class="mc">
+      <div class="mhd"><span class="mn">Spine Bend</span><span class="mbg g" id="bd-spine">UPRIGHT</span></div>
+      <div class="mv cy" id="vl-spine">0%</div>
+      <div class="ms">Alert fires &gt;30% from your calibrated neutral</div>
+      <div class="mbar"><div class="mfill cy" id="bf-spine" style="width:0"></div></div>
+    </div>
+    <div class="mc">
+      <div class="mhd"><span class="mn">Slouch Timer</span><span class="mbg g" id="bd-slouch">OK</span></div>
+      <div class="mv cy" id="vl-slouch">0s</div>
+      <div class="ms">Voice tip at 3s continuous slouch</div>
+      <div class="mbar"><div class="mfill r" id="bf-slouch" style="width:0"></div></div>
+    </div>
+    <div class="mc">
+      <div class="mhd"><span class="mn">Breath I:E</span><span class="mbg g" id="bd-ie">—</span></div>
+      <div class="mv g" id="vl-ie">1:—</div>
+      <div class="ms">Target 1:2 pranayama ratio</div>
+      <div class="bwave"><canvas id="bwc"></canvas></div>
+    </div>
+    <div class="mc">
+      <div class="mhd"><span class="mn">Breath Type</span><span class="mbg g" id="bd-btype">SCANNING</span></div>
+      <div class="dual-bars">
+        <div class="dbl-lbl">DIAPHRAGM</div>
+        <div class="mbar"><div class="mfill g" id="bf-dph" style="width:50%"></div></div>
+        <div class="dbl-lbl" style="margin-top:6px">CLAVICULAR</div>
+        <div class="mbar"><div class="mfill r" id="bf-clv" style="width:50%"></div></div>
+      </div>
+      <div class="ms" id="ms-btype" style="margin-top:6px">Calibrating…</div>
+    </div>
+    <div class="mc">
+      <div class="mhd"><span class="mn">Inversion Timer</span><span class="mbg g" id="bd-inv">SAFE</span></div>
+      <div class="mv" id="vl-inv" style="color:var(--t3)">0s</div>
+      <div class="ms" id="ms-inv">No inversion detected</div>
+      <div class="mbar"><div class="mfill g" id="bf-inv" style="width:0"></div></div>
+    </div>
+    <div class="mc">
+      <div class="mhd"><span class="mn">AI Confidence</span><span class="mbg g" id="bd-conf">—</span></div>
+      <div class="mv cy" id="vl-conf">—%</div>
+      <div class="ms">Low confidence → HITL check fires</div>
+      <div class="mbar"><div class="mfill cy" id="bf-conf" style="width:0"></div></div>
+    </div>
+    <div class="hitl-card" id="hitl-card">
+      <div class="hitl-title">🤝 Human-in-Loop · Breath Verification</div>
+      <div class="hitl-desc">The AI is uncertain about your breathing pattern. <strong style="color:var(--t1)">Are you breathing from your belly?</strong> (Belly rises on inhale — not chest or shoulders)</div>
+      <div class="hitl-btns">
+        <button class="hitl-yes" onclick="hitlReply(true)">✓ Yes — Belly</button>
+        <button class="hitl-no"  onclick="hitlReply(false)">✗ No — Chest</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="fsec">
+  <p class="sec-label">How It Works</p>
+  <h2 class="sec-title">Clinical-Grade AI</h2>
+  <div class="fgrid">
+    <div class="fc"><span class="fc-num">01</span><span class="fc-ico">🎯</span><div class="fc-title">BlazePose On-Device</div><div class="fc-txt">33 landmarks at 30fps via WebGL. Zero video upload. Runs in your browser.</div></div>
+    <div class="fc"><span class="fc-num">02</span><span class="fc-ico">📐</span><div class="fc-title">Personal Calibration</div><div class="fc-txt">Learns YOUR neutral spine in 40 frames. Alerts at 30% deviation from your baseline.</div></div>
+    <div class="fc"><span class="fc-num">03</span><span class="fc-ico">❤️</span><div class="fc-title">BP Safety</div><div class="fc-txt">Detects Downward Dog, Triangle, Uttanasana, Sarvangasana. 10s cap for high-risk users.</div></div>
+    <div class="fc"><span class="fc-num">04</span><span class="fc-ico">🫁</span><div class="fc-title">Breath Intelligence</div><div class="fc-txt">Shoulder Y-axis stdDev separates clavicular from diaphragmatic breathing accurately.</div></div>
+    <div class="fc"><span class="fc-num">05</span><span class="fc-ico">🤝</span><div class="fc-title">Human-in-Loop AI</div><div class="fc-txt">Only asks you when genuinely uncertain. Your answers train the model. 30s cooldown.</div></div>
+    <div class="fc"><span class="fc-num">06</span><span class="fc-ico">💬</span><div class="fc-title">Supportive Coaching</div><div class="fc-txt">"Try gently rolling your shoulders back" — not "Wrong!" Clinically tuned voice tone.</div></div>
+  </div>
+</section>
+
+<!-- EXPERT / CALENDLY -->
+<div class="expert-sec">
+  <div class="expert-eyebrow">Free 1:1 Consultation</div>
+  <h2 class="expert-title">Book a Session with<br>a Certified Physiotherapist</h2>
+  <p class="expert-desc">Our experts review your personalised posture data before the call. 45-min session. Clinical recommendations. First session free.</p>
+  <button class="btn-gold" onclick="openCalendly()">📅 Book Your Free Session →</button>
+  <div class="expert-trust">No credit card · Instant confirmation · Calendly powered</div>
+</div>
+
+<footer>
+  <div class="flogo">⬡ SpineErectaAI</div>
+  <div class="ftxt">
+    Free forever · On-device AI · No tracking · India DPDPA 2023 compliant<br>
+    <a href="PrivacyPolicy_India.html" target="_blank">Privacy Policy</a> ·
+    <a href="#" onclick="openCalendly();return false">Book Expert</a> ·
+    <a href="mailto:hello@spineerectaai.com">Contact</a>
+  </div>
+</footer>
+
+<!-- Expert Modal (fallback if Calendly inline blocked) -->
+<div class="modal" id="exp-modal">
+  <div class="mbox">
+    <button class="mclose" onclick="closeModal('exp-modal')">✕</button>
+    <div style="font-size:1.6rem;margin-bottom:10px">📅</div>
+    <div class="mtit">Book Expert Session</div>
+    <div class="msub">You'll be redirected to Calendly to pick a time. Your health profile is pre-filled in the message.</div>
+    <div class="frow"><div class="flbl">Preferred Time</div>
+      <select class="finp" id="et"><option>Morning (6–9 AM)</option><option>Evening (5–8 PM)</option><option>Weekend</option><option>Flexible</option></select>
+    </div>
+    <button class="btn-next" onclick="bookViaWA()" style="margin-top:4px">Book via WhatsApp</button>
+    <button class="btn-next" onclick="window.open(CONFIG.CALENDLY_URL,'_blank');closeModal('exp-modal')" style="margin-top:8px;background:linear-gradient(135deg,var(--gold),#c4920a);color:#0a0600">Open Calendly →</button>
+  </div>
+</div>
+
+<div class="toast-container" id="tc"></div>
+
+
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════
+   CONDITIONS DEFINITION
+═══════════════════════════════════════════ */
+const CONDS = [
+  {id:'highBP',  step:3, q:'High Blood Pressure (Hypertension)',       hint:'Inversions raise BP dangerously. A 10s cap will be enforced.',         cap:10, riskInv:true,  riskSlch:false},
+  {id:'lowBP',   step:3, q:'Low Blood Pressure (Hypotension)',          hint:'Inversions can cause fainting. A 10s cap will be enforced.',           cap:10, riskInv:true,  riskSlch:false},
+  {id:'cardiac', step:3, q:'Cardiovascular / Heart Condition',          hint:'Any heart condition warrants extreme caution in inversions.',          cap:8,  riskInv:true,  riskSlch:false},
+  {id:'diabetes',step:3, q:'Diabetes (Type 1 or 2)',                    hint:'Monitor blood sugar before/after. Keep a snack handy. Enter/exit poses slowly. Avoid strenuous poses with high BP or retinopathy.',cap:15, riskInv:false, riskSlch:false},
+  {id:'disc',    step:4, q:'Disc Prolapse / Bulge / Herniation',        hint:'Forward folds and inversions increase disc pressure significantly.',   cap:8,  riskInv:true,  riskSlch:true},
+  {id:'spondyl', step:4, q:'Spondylosis (Cervical or Lumbar)',          hint:'Spinal degeneration — posture correction alerts will be stricter.',    cap:8,  riskInv:true,  riskSlch:true},
+  {id:'scolio',  step:4, q:'Scoliosis',                                 hint:'Lateral curvature — slouch monitoring will be more sensitive.',        cap:10, riskInv:true,  riskSlch:true},
+  {id:'lordosis',step:4, q:'Lordosis (Exaggerated lumbar curve)',       hint:'Excessive lumbar arch — posture correction alerts enabled.',           cap:10, riskInv:true,  riskSlch:true},
+  {id:'surgery', step:4, q:'Recent Surgery (within 12 months)',         hint:'Please describe the surgery type below for safe monitoring.',          cap:8,  riskInv:true,  riskSlch:true, detail:true},
+  {id:'knee',    step:4, q:'Knee / Hip / Joint Issues',                 hint:'Weight-bearing poses will be monitored carefully.',                    cap:15, riskInv:false, riskSlch:false},
+  {id:'asthma',  step:5, q:'Asthma or Respiratory Condition',          hint:'Breath alerts will be more sensitive and calmer in tone.',             cap:15, riskInv:false, riskSlch:false},
+  {id:'anxiety', step:5, q:'Anxiety / Panic Disorder',                 hint:'Voice alerts will use a slower, calmer pace.',                         cap:15, riskInv:false, riskSlch:false},
+];
+
+/* ═══════════════════════════════════════════
+   USER PROFILE + STATE
+═══════════════════════════════════════════ */
+const U = {
+  name:'', country:'', age:'', prac:'', surgeryNote:'',
+  yes: new Set(),
+  // Camera
+  running:false, paused:false, stream:null,
+  // Calibration
+  calib:[], neutral:null,
+  // Spine
+  spineDev:0, slouchT:null, slouchFired:false,
+  // Inversion
+  invOn:false, invStart:null, invPose:'', invFired:false,
+  // Breath
+  breathBuf:[], clav:false, breathFired:false,
+  hitlOn:false, hitlLog:[], hitlLast:0,
+  // Breath wave
+  bwBuf: new Array(120).fill(.5), bwReady:false, bwCtx:null,
+  // Audio
+  actx:null,
+};
+
+/* Helpers */
+const cap = () => { let c=60; U.yes.forEach(id=>{const x=CONDS.find(c=>c.id===id); if(x?.riskInv&&x.cap<c)c=x.cap;}); return c; };
+const hasInv = () => [...U.yes].some(id=>CONDS.find(c=>c.id===id)?.riskInv);
+const hasSlch = () => [...U.yes].some(id=>CONDS.find(c=>c.id===id)?.riskSlch);
+const calm = () => U.yes.has('anxiety');
+
+/* ═══════════════════════════════════════════
+   SESSION (free — no credits/paywall)
+═══════════════════════════════════════════ */
+function loadSession(){ /* fully free, nothing to load */ }
+function saveSession(){ /* fully free, nothing to save */ }
+function canUse(){ return true; }
+function deductCredit(){ /* free — no deduction */ }
+function checkAccess(){ return true; }
+
+/* ═══════════════════════════════════════════
+   GOOGLE SHEETS SYNC
+═══════════════════════════════════════════ */
+async function syncToSheets(data){
+  if(!CONFIG.SHEETS_WEBHOOK || CONFIG.SHEETS_WEBHOOK.includes('REPLACE')) return;
+  try {
+    await fetch(CONFIG.SHEETS_WEBHOOK, {
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        timestamp: new Date().toISOString(),
+        name: U.name,
+        country: U.country,
+        age: U.age,
+        prac: U.prac,
+        conditions: [...U.yes].join(', '),
+        surgery_note: U.surgeryNote,
+        ...data
+      })
+    });
+  } catch(e){ /* silent — no-cors fetch always rejects */ }
+}
+
+/* ═══════════════════════════════════════════
+   WIZARD LOGIC
+═══════════════════════════════════════════ */
+const PROG=[0,25,50,75,100];
+let wStep=1;
+
+// Build condition Y/N cards
+['s2','s3','s4'].forEach(slot=>{
+  const stepNum = slot==='s2'?3:slot==='s3'?4:5;
+  const cont = document.getElementById('c'+slot);
+  if(!cont) return;
+  CONDS.filter(c=>c.step===stepNum).forEach(c=>{
+    const d=document.createElement('div');
+    d.className='yn-card'; d.id='yc-'+c.id;
+    d.innerHTML=`<div class="yn-q">${c.q}</div><div class="yn-hint">${c.hint}</div>
+    <div class="yn-btns">
+      <button class="yn-btn" data-id="${c.id}" data-v="yes" onclick="pickYN(this)">✓ Yes</button>
+      <button class="yn-btn" data-id="${c.id}" data-v="no"  onclick="pickYN(this)">✗ No</button>
+    </div>
+    ${c.detail?`<div class="surgery-input" id="sd-${c.id}"><input class="finp" id="st-${c.id}" placeholder="e.g. Lumbar discectomy, knee replacement…"></div>`:''}`
+    ;
+    cont.appendChild(d);
+  });
+});
+
+function pickYN(btn){
+  const {id,v}=btn.dataset;
+  document.querySelectorAll(`.yn-btn[data-id="${id}"]`).forEach(b=>{b.classList.remove('sel-yes','sel-no');});
+  btn.classList.add(v==='yes'?'sel-yes':'sel-no');
+  const card=document.getElementById('yc-'+id);
+  if(card){card.classList.remove('answered-yes','answered-no');card.classList.add(v==='yes'?'answered-yes':'answered-no');}
+  if(v==='yes'){U.yes.add(id);document.getElementById('sd-'+id)?.classList.add('show');}
+  else{U.yes.delete(id);document.getElementById('sd-'+id)?.classList.remove('show');}
+}
+
+function showStep(n){
+  document.querySelectorAll('.step-pg').forEach(p=>p.classList.remove('active'));
+  document.getElementById('sp'+n).classList.add('active');
+  document.getElementById('gz-prog').style.width=PROG[n]+'%';
+  document.getElementById('gz-step-lbl').textContent=`Step ${n} of 4`;
+  wStep=n;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function goNext(from){
+  if(!validateStep(from)) return;
+  if(from===3) buildSummaryChips();
+  showStep(from+1);
+}
+function goBack(from){ showStep(from-1); }
+
+function validateStep(s){
+  let ok=true;
+  const clr=(id)=>{document.getElementById('e-'+id)?.classList.remove('show');document.getElementById('f-'+id)?.classList.remove('err');};
+  const err=(id,msg)=>{const e=document.getElementById('e-'+id);if(e){e.textContent=msg;e.classList.add('show');}document.getElementById('f-'+id)?.classList.add('err');ok=false;};
+
+  if(s===1){
+    ['country','age','prac'].forEach(clr);
+    const co=document.getElementById('f-country')?.value;
+    const ag=document.getElementById('f-age')?.value;
+    const pr=document.getElementById('f-prac')?.value;
+    if(!co) err('country','Please select your country');
+    if(!ag) err('age','Please select your age group');
+    if(!pr) err('prac','Please select your practice type');
+    if(ok){U.country=co;U.age=ag;U.prac=pr;}
+  }
+  if(s===2||s===3||s===4){
+    const stepConds=CONDS.filter(c=>c.step===(s===2?3:s===3?4:5));
+    const unans=stepConds.filter(c=>!document.querySelector(`.yn-btn[data-id="${c.id}"].sel-yes`)&&!document.querySelector(`.yn-btn[data-id="${c.id}"].sel-no`));
+    if(unans.length){toast(`Please answer all ${unans.length} question(s) on this page`,'err');ok=false;}
+    if(ok&&s===3&&U.yes.has('surgery')){
+      const st=document.getElementById('st-surgery')?.value.trim();
+      if(!st){toast('Please describe your recent surgery','err');ok=false;}
+      else U.surgeryNote=st;
+    }
+  }
+  return ok;
+}
+
+function buildSummaryChips(){
+  const row=document.getElementById('summary-chips');
+  row.innerHTML='';
+  CONDS.forEach(c=>{
+    const isY=U.yes.has(c.id);
+    const ch=document.createElement('span');
+    ch.className='chip '+(isY?'y':'n');
+    ch.textContent=(isY?'⚠ ':'✓ ')+c.q.split(' (')[0].substring(0,28);
+    row.appendChild(ch);
+  });
+}
+
+async function activateApp(){
+  if(!validateStep(4)) return;
+  document.getElementById('gate').classList.add('done');
+  if(!U.name) U.name = 'User';
+  buildFlagsStrip();
+  loadSession();
+  saveSession();
+  await syncToSheets({event:'signup'});
+  toast(`Welcome! Your safety profile is active.`,'ok');
+  if(U.yes.size) setTimeout(()=>toast(`⚕️ ${U.yes.size} health flag(s) active — personalised safety alerts on`,'warn'),900);
+  // Diabetes session reminder
+  if(U.yes.has('diabetes')){
+    setTimeout(()=>{
+      showAl('al-d','Diabetes active: monitor blood sugar before/after. Keep a snack nearby to prevent hypoglycemia. Enter/exit poses slowly to avoid dizziness.');
+      speak('Diabetes precaution reminder: please check your blood sugar before starting and keep a snack handy. Enter and exit all poses slowly to prevent dizziness.');
+    }, 2000);
+  }
+  setTimeout(()=>scrollToId('asec'),1400);
+}
+
+function buildFlagsStrip(){
+  if(!U.yes.size) return;
+  const strip=document.getElementById('flags-strip');
+  const chips=document.getElementById('flags-chips');
+  strip.classList.add('show');
+  chips.innerHTML='';
+  U.yes.forEach(id=>{
+    const c=CONDS.find(x=>x.id===id);
+    if(c){const ch=document.createElement('div');ch.className='flag-chip';ch.textContent=c.q.split(' (')[0];chips.appendChild(ch);}
+  });
+}
+
+/* ═══════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════ */
+function scrollToId(id){document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'});}
+
+function toast(msg,type=''){
+  const tc=document.getElementById('tc');
+  const el=document.createElement('div');
+  el.className='toast '+(type||'');
+  const ico={err:'🛑',ok:'✅',warn:'⚠️',info:'💡','':'💬'};
+  el.innerHTML=`<span>${ico[type]||'💬'}</span><span>${msg}</span>`;
+  tc.appendChild(el);
+  setTimeout(()=>el.remove(),5500);
+}
+
+function speak(txt){
+  try{
+    window.speechSynthesis?.cancel();
+    const u=new SpeechSynthesisUtterance(txt);
+    u.rate=calm()?.78:.88; u.pitch=calm()?.92:1.04; u.volume=1;
+    window.speechSynthesis?.speak(u);
+  }catch(e){}
+}
+
+function beep(f=660,d=.28,t='sine'){
+  try{
+    if(!U.actx)U.actx=new(window.AudioContext||window.webkitAudioContext)();
+    const o=U.actx.createOscillator(),g=U.actx.createGain();
+    o.connect(g);g.connect(U.actx.destination);
+    o.frequency.value=f;o.type=t;
+    g.gain.setValueAtTime(.4,U.actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,U.actx.currentTime+d);
+    o.start();o.stop(U.actx.currentTime+d);
+  }catch(e){}
+}
+
+function showAl(id,msg){
+  document.getElementById(id+'-msg')&&(document.getElementById(id+'-msg').textContent=msg);
+  document.getElementById(id)?.classList.add('show');
+}
+function hideAl(id){document.getElementById(id)?.classList.remove('show');}
+
+const setV=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+const setB=(id,pct,cls)=>{const e=document.getElementById(id);if(!e)return;e.style.width=Math.min(100,Math.max(0,pct))+'%';if(cls)e.className='mfill '+cls;};
+const setBg=(id,t,cls)=>{const e=document.getElementById(id);if(!e)return;e.textContent=t;e.className='mbg '+(cls||'g');};
+const setCam=(on,txt)=>{const d=document.getElementById('live-dot');if(d)d.className='live-dot'+(on?' on':'');setV('cam-txt',txt);};
+
+/* ═══════════════════════════════════════════
+   CAMERA
+═══════════════════════════════════════════ */
+const vid=document.getElementById('vid');
+const canv=document.getElementById('canv');
+const ctx=canv.getContext('2d');
+
+async function startCam(){
+  if(U.running) return;
+  if(!checkAccess()) return;
+  try{if(!U.actx)U.actx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
+  try{
+    U.stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:480},facingMode:'user'},audio:false});
+    vid.srcObject=U.stream;
+    await vid.play();
+    canv.width=vid.videoWidth||640; canv.height=vid.videoHeight||480;
+    document.getElementById('cam-overlay').classList.add('gone');
+    setCam(true,'LOADING MODEL…');
+    document.getElementById('btn-start').disabled=true;
+    document.getElementById('btn-pause').disabled=false;
+    U.running=true;
+    initBW(); loadMP(); deductCredit();
+    // Diabetes periodic reminder every 10 min during session
+    if(U.yes.has('diabetes')){
+      U.diabetesReminder = setInterval(()=>{
+        if(!U.running||U.paused) return;
+        showAl('al-d','Diabetes check: How is your blood sugar? Pause and check if you feel dizzy, shaky, or unusually tired.');
+        speak('Diabetes check-in: take a moment to notice how you feel. If dizzy or shaky, pause and check your blood sugar.');
+        setTimeout(()=>hideAl('al-d'), 15000);
+      }, 10*60*1000);
+    }
+  }catch(e){
+    toast('Camera blocked — starting demo mode','warn');
+    startSim();
+  }
+}
+
+function togglePause(){
+  U.paused=!U.paused;
+  document.getElementById('btn-pause').textContent=U.paused?'▶ Resume':'⏸ Pause';
+  setCam(!U.paused, U.paused?'PAUSED':'LIVE');
+}
+
+/* MediaPipe */
+function loadMP(){
+  const s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js';
+  s.onload=()=>{
+    const s2=document.createElement('script');
+    s2.src='https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js';
+    s2.onload=initMP; s2.onerror=startRAF;
+    document.head.appendChild(s2);
+  };
+  s.onerror=startSim;
+  document.head.appendChild(s);
+}
+
+let mpPose=null;
+function initMP(){
+  try{
+    mpPose=new Pose({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${f}`});
+    mpPose.setOptions({modelComplexity:1,smoothLandmarks:true,enableSegmentation:false,minDetectionConfidence:.5,minTrackingConfidence:.5});
+    mpPose.onResults(onResults);
+    const cam=new Camera(vid,{onFrame:async()=>{if(!U.paused&&U.running)await mpPose.send({image:vid});},width:640,height:480});
+    cam.start();
+    setCam(true,'LIVE · BLAZEPOSE');
+    toast('BlazePose active ✓','ok');
+  }catch(e){startRAF();}
+}
+function startRAF(){
+  setCam(true,'LIVE · RAF');
+  if(!mpPose){startSim();return;}
+  (async function loop(){
+    if(!U.running)return;
+    if(!U.paused&&vid.readyState>=2){
+      ctx.save();ctx.translate(canv.width,0);ctx.scale(-1,1);
+      ctx.drawImage(vid,0,0,canv.width,canv.height);ctx.restore();
+      try{await mpPose.send({image:vid});}catch(e){}
+    }
+    requestAnimationFrame(loop);
+  })();
+}
+
+const SEGS=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[24,26],[25,27],[26,28],[0,11],[0,12]];
+
+function onResults(res){
+  if(!res.poseLandmarks||U.paused)return;
+  const lm=res.poseLandmarks,W=canv.width,H=canv.height;
+  ctx.save();ctx.translate(W,0);ctx.scale(-1,1);
+  ctx.drawImage(res.image||vid,0,0,W,H);ctx.restore();
+  ctx.save();ctx.translate(W,0);ctx.scale(-1,1);
+  drawSkel(lm,W,H);ctx.restore();
+  const [lS,rS,lH,rH,lW2,rW2,lK,rK,lA,rA,nose]=[lm[11],lm[12],lm[23],lm[24],lm[15],lm[16],lm[25],lm[26],lm[27],lm[28],lm[0]];
+  processSpine(lS,rS,lH,rH);
+  processInv(lS,rS,lH,rH,lW2,rW2,lK,rK,lA,rA,nose);
+  processBreath(lS,rS);
+  processConf((lS.visibility+rS.visibility+lH.visibility)/3);
+  setCam(true,'LIVE · ANALYSING');
+}
+
+function drawSkel(lm,W,H){
+  ctx.shadowBlur=10;ctx.shadowColor='rgba(0,212,255,.5)';
+  ctx.strokeStyle='rgba(0,212,255,.68)';ctx.lineWidth=2.5;
+  SEGS.forEach(([a,b])=>{if(lm[a]?.visibility>.4&&lm[b]?.visibility>.4){ctx.beginPath();ctx.moveTo(lm[a].x*W,lm[a].y*H);ctx.lineTo(lm[b].x*W,lm[b].y*H);ctx.stroke();}});
+  ctx.shadowBlur=16;
+  lm.forEach((p,i)=>{if(p.visibility>.45){ctx.beginPath();ctx.arc(p.x*W,p.y*H,5,0,Math.PI*2);ctx.fillStyle=i<=10?'rgba(0,232,122,.88)':'rgba(0,212,255,.88)';ctx.fill();}});
+  const sX=(lm[11].x+lm[12].x)/2*W,sY=(lm[11].y+lm[12].y)/2*H;
+  const hX=(lm[23].x+lm[24].x)/2*W,hY=(lm[23].y+lm[24].y)/2*H;
+  ctx.strokeStyle=U.slouchFired?'rgba(255,61,85,.9)':'rgba(255,220,60,.6)';
+  ctx.lineWidth=3;ctx.setLineDash([6,4]);ctx.shadowBlur=0;
+  ctx.beginPath();ctx.moveTo(sX,sY);ctx.lineTo(hX,hY);ctx.stroke();ctx.setLineDash([]);
+}
+
+/* SPINE */
+function processSpine(lS,rS,lH,rH){
+  const shX=(lS.x+rS.x)/2,shY=(lS.y+rS.y)/2;
+  const hiX=(lH.x+rH.x)/2,hiY=(lH.y+rH.y)/2;
+  const ang=Math.atan2(Math.abs(hiX-shX),hiY-shY)*180/Math.PI;
+  if(U.neutral===null){
+    U.calib.push(ang);
+    setCam(true,`CALIBRATING ${U.calib.length}/40`);
+    if(U.calib.length>=40){U.neutral=U.calib.reduce((a,b)=>a+b,0)/40;toast('✓ Spine calibrated to your baseline','ok');setCam(true,'LIVE');}
+    return;
+  }
+  const dev=ang-U.neutral;
+  const pct=Math.min(100,Math.max(0,(dev/30)*100));
+  U.spineDev=pct;
+  const slouch=pct>30;
+  if(slouch){
+    if(!U.slouchT)U.slouchT=Date.now();
+    const el=(Date.now()-U.slouchT)/1000;
+    if(el>=3&&!U.slouchFired){
+      U.slouchFired=true;
+      const nm = U.name || 'friend';
+      const tips=['Try gently rolling your shoulders back and lifting your chest.','Imagine a thread pulling the crown of your head upward — let your spine lengthen.',`Take a breath in — as you exhale, let your spine gently straighten, ${nm}.`];
+      const conds=[...U.yes].filter(id=>CONDS.find(c=>c.id===id)?.riskSlch).map(id=>CONDS.find(c=>c.id===id)?.q.split(' (')[0]);
+      const msg=conds.length?`${nm}, gentle reminder — your spine has been bent. With ${conds[0]}, a straight spine is especially important. ${tips[0]}`:tips[Math.floor(Math.random()*3)];
+      showAl('al-s',`Spine bent >30% from your neutral — try gently sitting upright`);
+      beep(440,.3,'square');setTimeout(()=>beep(440,.3,'square'),330);
+      speak(msg);
+    }
+    setV('vl-slouch',Math.round((Date.now()-U.slouchT)/1000)+'s');
+    setB('bf-slouch',Math.min(100,((Date.now()-U.slouchT)/1000/3)*100),'r');
+    setBg('bd-slouch',pct.toFixed(0)+'%','a');
+  } else {
+    if(U.slouchFired){U.slouchFired=false;hideAl('al-s');}
+    U.slouchT=null;
+    setV('vl-slouch','0s');setB('bf-slouch',0,'r');setBg('bd-slouch','OK','g');
+  }
+  setV('vl-spine',pct.toFixed(0)+'%');
+  setB('bf-spine',pct,pct>30?'r':pct>15?'a':'cy');
+  setBg('bd-spine',pct>30?'SLOUCH':pct>15?'WATCH':'UPRIGHT',pct>30?'a':pct>15?'w':'g');
+}
+
+/* INVERSION */
+function detectInv(lS,rS,lH,rH,lW,rW,lK,rK,lA,rA,nose){
+  const shY=(lS.y+rS.y)/2,hiY=(lH.y+rH.y)/2;
+  const wriY=(lW.y+rW.y)/2,ankY=(lA.y+rA.y)/2,knY=(lK.y+rK.y)/2;
+  if(hiY<shY-.08&&wriY>hiY-.05&&ankY>hiY)return'Downward Dog';
+  if(nose.y>knY-.08&&hiY<knY&&!(hiY<shY-.08))return'Forward Fold (Uttanasana)';
+  if(Math.abs(lS.y-rS.y)>.15&&(Math.abs(lW.y-lA.y)<.1||Math.abs(rW.y-rA.y)<.1))return'Triangle Pose';
+  if(hiY<shY-.18)return'Shoulder Stand';
+  if(hiY<shY-.04)return'Inversion Pose';
+  return null;
+}
+function processInv(lS,rS,lH,rH,lW,rW,lK,rK,lA,rA,nose){
+  if(U.neutral===null)return;
+  const pose=detectInv(lS,rS,lH,rH,lW,rW,lK,rK,lA,rA,nose);
+  if(pose&&!U.invOn){
+    U.invOn=true;U.invStart=Date.now();U.invPose=pose;U.invFired=false;
+    setV('ms-inv',pose+' detected');
+    if(hasInv()){
+      const c2=cap();
+      showAl('al-b',`${pose} — exit within ${c2}s`);
+      beep(880,.6,'sawtooth');
+      const condList=[...U.yes].filter(id=>CONDS.find(c=>c.id===id)?.riskInv).map(id=>CONDS.find(c=>c.id===id)?.q.split(' (')[0]).join(' and ');
+      speak(`${U.name||'friend'}, ${pose} detected. With ${condList}, this raises risk. Please exit safely within ${c2} seconds.`);
+    }
+  }
+  if(!pose&&U.invOn){
+    U.invOn=false;U.invStart=null;U.invFired=false;
+    hideAl('al-b');setV('vl-inv','0s');setB('bf-inv',0,'g');setBg('bd-inv','SAFE','g');setV('ms-inv','No inversion detected');
+  }
+  if(U.invOn&&U.invStart){
+    const el=(Date.now()-U.invStart)/1000;
+    const lim=hasInv()?cap():60;
+    const pct=Math.min(100,(el/lim)*100);
+    setV('vl-inv',el.toFixed(0)+'s');
+    setB('bf-inv',pct,pct>80?'r':pct>50?'a':'g');
+    setBg('bd-inv',pct>80?'DANGER':pct>50?'CAUTION':'SAFE',pct>80?'a':pct>50?'w':'g');
+    if(el>=lim&&!U.invFired){
+      U.invFired=true;
+      beep(660,.5,'square');setTimeout(()=>beep(880,.5,'sawtooth'),320);
+      speak(`${U.name||'friend'}, please exit ${U.invPose} now. You can always try a gentler variation.`);
+    }
+  }
+}
+
+/* BREATH — stdDev shoulder Y axis */
+function processBreath(lS,rS){
+  const shY=(lS.y+rS.y)/2;
+  U.breathBuf.push({t:Date.now(),shY});
+  if(U.breathBuf.length>180)U.breathBuf.shift();
+  if(U.breathBuf.length<30)return;
+  const win=U.breathBuf.slice(-60);
+  const mean=win.reduce((a,d)=>a+d.shY,0)/win.length;
+  const std=Math.sqrt(win.reduce((a,d)=>a+(d.shY-mean)**2,0)/win.length);
+  // Raised thresholds — 0.018 requires visible shoulder rise to classify as clavicular
+  // 0.007 clearly still means belly breathing with minimal shoulder involvement
+  const CLV=.018, DPH=.007;
+  let cs,conf;
+  if(std>CLV){cs=1;U.clav=true;conf=true;}
+  else if(std<DPH){cs=0;U.clav=false;conf=true;}
+  else{cs=(std-DPH)/(CLV-DPH);U.clav=cs>.6;conf=false;}
+  const cp=Math.round(cs*100);
+  setB('bf-clv',cp,'r');setB('bf-dph',100-cp,'g');
+  setV('ms-btype',conf?'':'AI uncertain — asking you…');
+  setBg('bd-btype',U.clav?'CLAVICULAR':'DIAPHRAGM',U.clav?'a':'g');
+  // Only alert after 4 consecutive seconds of confirmed clavicular breathing
+  if(U.clav&&conf){
+    U.clavCount=(U.clavCount||0)+1;
+  } else {
+    U.clavCount=0;
+  }
+  if(U.clav&&conf&&U.clavCount>120&&!U.breathFired){
+    U.breathFired=true;
+    const tips=[`Your shoulders are rising as you breathe. Try letting your belly expand instead — place one hand on your abdomen.`,`A gentle suggestion — breathe down into your belly, not up into your chest.`];
+    showAl('al-br','Chest breathing detected — try belly breathing');
+    speak(tips[Math.floor(Math.random()*2)]);
+    setTimeout(()=>{U.breathFired=false;hideAl('al-br');U.clavCount=0;},12000);
+  }
+  if(!conf&&Date.now()-U.hitlLast>30000&&!U.hitlOn){
+    U.hitlOn=true;U.hitlLast=Date.now();
+    document.getElementById('hitl-card').classList.add('show');
+    toast('Quick breath check — 1 question for you 🤝','info');
+  }
+  const wv=.5+(shY-mean)*40;
+  U.bwBuf.push(Math.max(.05,Math.min(.95,wv)));U.bwBuf.shift();
+}
+
+function hitlReply(diaph){
+  U.hitlOn=false;document.getElementById('hitl-card').classList.remove('show');
+  U.hitlLog.push({t:Date.now(),diaph});U.clav=!diaph;
+  if(!diaph){
+    showAl('al-br','Confirmed: chest breathing — try belly breathing');
+    speak(`Thank you. Since you're breathing from your chest, try this — breathe out fully, then let your belly expand as you breathe in.`);
+    setTimeout(()=>hideAl('al-br'),10000);
+  } else {
+    toast('✓ Great diaphragmatic breathing — keep it up!','ok');
+    speak(`Wonderful. Diaphragmatic breathing is exactly right.`);
+  }
+}
+
+function processConf(conf){
+  const pct=Math.round(conf*100);
+  const st=pct>82?'HIGH':pct>65?'MED':'LOW';
+  setV('vl-conf',pct+'%');setB('bf-conf',pct,pct>82?'cy':pct>65?'a':'r');setBg('bd-conf',st,pct>82?'g':pct>65?'w':'a');
+}
+
+/* ═══════════════════════════════════════════
+   SIMULATION MODE
+═══════════════════════════════════════════ */
+let simT=0,simR=null;
+function startSim(){
+  if(!U.running){
+    document.getElementById('cam-overlay').classList.add('gone');
+    document.getElementById('btn-start').disabled=true;
+    document.getElementById('btn-pause').disabled=false;
+    U.running=true;
+  }
+  canv.width=640;canv.height=480;U.neutral=12;
+  initBW();setCam(true,'SIMULATION · DEMO');
+  toast('Demo simulation — all alert systems active','warn');
+  const loop=()=>{
+    if(!U.running)return;
+    simT+=.055;
+    if(!U.paused)runSim(simT);
+    simR=requestAnimationFrame(loop);
+  };
+  simR=requestAnimationFrame(loop);
+}
+
+function runSim(t){
+  const W=640,H=480,cx=W*.5,cy=H*.5,sc=Math.min(W,H)*.34;
+  const swing=Math.sin(t*.35)*.012;
+  const slchAmt=Math.max(0,Math.sin(t*.14))*15;
+  const invMode=Math.sin(t*.038)>.87;
+  const clavMode=Math.sin(t*.17)>.72;
+  const J={
+    nose:[cx+slchAmt*.06*sc,cy-sc*.82],
+    lSh:[cx-sc*.22+slchAmt*.01*sc,cy-sc*.38+slchAmt*.015*sc],
+    rSh:[cx+sc*.22+slchAmt*.01*sc,cy-sc*.38+slchAmt*.015*sc],
+    lHip:[cx-sc*.16,cy+sc*.20],rHip:[cx+sc*.16,cy+sc*.20],
+    lKne:[cx-sc*(.20+swing),cy+sc*.56],rKne:[cx+sc*(.20-swing),cy+sc*.56],
+    lFt:[cx-sc*.22,cy+sc*.90],rFt:[cx+sc*.22,cy+sc*.90],
+    lHnd:[cx-sc*.40,cy+sc*.22],rHnd:[cx+sc*.40,cy+sc*.22],
+  };
+  if(invMode){J.lHip=[cx-sc*.1,cy-sc*.22];J.rHip=[cx+sc*.1,cy-sc*.22];J.lSh=[cx-sc*.38,cy+sc*.1];J.rSh=[cx+sc*.38,cy+sc*.1];J.lHnd=[cx-sc*.5,cy+sc*.42];J.rHnd=[cx+sc*.5,cy+sc*.42];}
+  ctx.clearRect(0,0,W,H);
+  const lines=[['lSh','rSh'],['lSh','lHip'],['rSh','rHip'],['lHip','rHip'],['lHip','lKne'],['rHip','rKne'],['lKne','lFt'],['rKne','rFt'],['nose','lSh'],['nose','rSh'],['lSh','lHnd'],['rSh','rHnd']];
+  ctx.strokeStyle='rgba(0,212,255,.65)';ctx.lineWidth=2.5;ctx.shadowBlur=10;ctx.shadowColor='rgba(0,212,255,.4)';
+  lines.forEach(([a,b])=>{if(J[a]&&J[b]){ctx.beginPath();ctx.moveTo(...J[a]);ctx.lineTo(...J[b]);ctx.stroke();}});
+  ctx.shadowBlur=16;ctx.shadowColor='rgba(0,232,122,.5)';
+  Object.values(J).forEach(([x,y])=>{ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fillStyle='rgba(0,232,122,.88)';ctx.fill();});
+  const sX=(J.lSh[0]+J.rSh[0])/2,sY=(J.lSh[1]+J.rSh[1])/2;
+  const hX=(J.lHip[0]+J.rHip[0])/2,hY=(J.lHip[1]+J.rHip[1])/2;
+  ctx.strokeStyle=U.slouchFired?'rgba(255,61,85,.9)':'rgba(255,220,60,.6)';
+  ctx.lineWidth=3;ctx.setLineDash([6,4]);ctx.shadowBlur=0;
+  ctx.beginPath();ctx.moveTo(sX,sY);ctx.lineTo(hX,hY);ctx.stroke();ctx.setLineDash([]);
+  // synthetic pose landmarks
+  const lm=buildSynLm(J,W,H);
+  processSpine(lm[11],lm[12],lm[23],lm[24]);
+  processInv(lm[11],lm[12],lm[23],lm[24],lm[15],lm[16],lm[25],lm[26],lm[27],lm[28],lm[0]);
+  const amp=clavMode?.014:.003;
+  const shY2=.35+Math.sin(t*2.2)*amp;
+  U.breathBuf.push({t:Date.now(),shY:shY2});
+  if(U.breathBuf.length>180)U.breathBuf.shift();
+  if(U.breathBuf.length>30){
+    const win=U.breathBuf.slice(-60),mean=win.reduce((a,d)=>a+d.shY,0)/win.length;
+    const std=Math.sqrt(win.reduce((a,d)=>a+(d.shY-mean)**2,0)/win.length);
+    const cp=Math.min(100,Math.round((Math.max(0,std-.004)/(.009-.004))*100));
+    setB('bf-clv',cp,'r');setB('bf-dph',100-cp,'g');
+    U.clav=cp>50;setBg('bd-btype',U.clav?'CLAVICULAR':'DIAPHRAGM',U.clav?'a':'g');
+    if(U.clav&&!U.breathFired){U.breathFired=true;showAl('al-br','Chest breathing — try belly breathing');setTimeout(()=>{U.breathFired=false;hideAl('al-br');},12000);}
+    const wv=.5+(shY2-mean)*40;U.bwBuf.push(Math.max(.05,Math.min(.95,wv)));U.bwBuf.shift();
+  }
+  processConf(.82+Math.sin(t*.15)*.1);
+}
+
+function buildSynLm(J,W,H){
+  const map={0:'nose',11:'lSh',12:'rSh',15:'lHnd',16:'rHnd',23:'lHip',24:'rHip',25:'lKne',26:'rKne',27:'lFt',28:'rFt'};
+  return Array.from({length:33},(_,i)=>{const k=map[i]||'lHip';const p=J[k]||J.lHip||[W*.5,H*.5];return{x:p[0]/W,y:p[1]/H,z:0,visibility:.9};});
+}
+
+/* ═══════════════════════════════════════════
+   BREATH WAVE
+═══════════════════════════════════════════ */
+function initBW(){
+  if(U.bwReady)return;U.bwReady=true;
+  const c=document.getElementById('bwc');if(!c)return;
+  U.bwCtx=c.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  c.width=(c.offsetWidth||200)*dpr;c.height=(c.offsetHeight||36)*dpr;
+  U.bwCtx.scale(dpr,dpr);
+  (function draw(){
+    if(!U.bwCtx){requestAnimationFrame(draw);return;}
+    const c2=U.bwCtx.canvas,dpr2=window.devicePixelRatio||1,w=c2.width/dpr2,h=c2.height/dpr2;
+    U.bwCtx.clearRect(0,0,w,h);
+    U.bwCtx.beginPath();U.bwCtx.strokeStyle='rgba(0,232,122,.82)';U.bwCtx.lineWidth=1.8;
+    U.bwCtx.shadowBlur=8;U.bwCtx.shadowColor='rgba(0,232,122,.4)';
+    U.bwBuf.forEach((v,i)=>{const x=(i/U.bwBuf.length)*w,y=h-v*h;i===0?U.bwCtx.moveTo(x,y):U.bwCtx.lineTo(x,y);});
+    U.bwCtx.stroke();U.bwCtx.shadowBlur=0;
+    requestAnimationFrame(draw);
+  })();
+}
+
+/* ═══════════════════════════════════════════
+   CALENDLY + EXPERT MODAL
+═══════════════════════════════════════════ */
+function openCalendly(){
+  const url=CONFIG.CALENDLY_URL;
+  if(url.includes('YOUR_HANDLE')){
+    openModal('exp-modal');
+    toast('Update CONFIG.CALENDLY_URL with your link','warn');
+    return;
+  }
+  // Try to open Calendly popup
+  if(window.Calendly){
+    Calendly.initPopupWidget({url});
+  } else {
+    window.open(url,'_blank');
+  }
+}
+function openModal(id){document.getElementById(id)?.classList.add('open');}
+function closeModal(id){document.getElementById(id)?.classList.remove('open');}
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+function bookViaWA(){
+  const conds=[...U.yes].join(', ')||'None';
+  const time=document.getElementById('et')?.value||'Flexible';
+  const msg=encodeURIComponent(`Hi! I'd like to book a SpineErectaAI expert session.\nPreferred time: ${time}\nHealth conditions: ${conds}`);
+  window.open(`https://wa.me/${CONFIG.SUPPORT_WA}?text=${msg}`,'_blank');
+  closeModal('exp-modal');toast('WhatsApp booking sent ✓','ok');
+}
+
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
+document.getElementById('btn-start').addEventListener('click',e=>{
+  if(!document.getElementById('gate').classList.contains('done')){
+    e.stopImmediatePropagation();
+    toast('Complete your Health Safety Profile first','err');
+
+  }
+});
+
+loadSession();
+</script>
+</body>
+</html>
